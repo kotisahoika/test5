@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinki 県府庁タイムアタックラリー【高松駅版】</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #2c3e50; /* ダークな背景色 */
+            color: #ecf0f1; /* 明るいテキスト色 */
+            padding: 20px;
+        }
+
+        select, button, input {
+            padding: 10px;
+            margin: 10px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+
+        button {
+            background-color: #2980b9; /* ボタンの背景色 */
+            color: #ecf0f1; /* ボタンのテキスト色 */
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #3498db; /* ホバー時の色 */
+        }
+
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Kinki 県府庁タイムアタックラリー【高松駅版】</h1>
+    <label for="teamSelect">チームを選択:</label>
+    <select id="teamSelect">
+        <option value="">チームを選択してください</option>
+        <option value="チームA">チームA</option>
+        <option value="チームB">チームB</option>
+    </select>
+    
+    <div id="passwordSection" style="display:none;">
+        <label for="teamPassword">パスワードを入力:</label>
+        <input type="password" id="teamPassword">
+        <button id="passwordSubmit">確認</button>
+    </div>
+
+    <button id="checkInButton" style="display:none;">チェックイン</button>
+    <div id="message"></div>
+
+    <script>
+        const teamPasswords = {
+            'チームA': 'ni4EU',
+            'チームB': 'dPLrO'
+        };
+
+        const checkinLocation = { lat: 34.350897, lng: 134.046709 }; // 高松駅の座標
+        const checkinRadius = 300; // 300m以内
+        const points = 100; // 高松駅のチェックインで獲得できる点数
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxEpVLbZNmwpOG01NjXh-4CS5PK019mgk8NhPOVNwuMNzPULTRXRF1Avd2k_03zIJtfZQ/exec'; // GASのURLをここに入れる
+
+        let selectedTeam = '';
+        let currentLat, currentLng;
+        const endTime = new Date("2024-10-05T23:00:00"); // 終了時刻を設定
+
+        document.getElementById('teamSelect').addEventListener('change', function () {
+            selectedTeam = this.value;
+            if (selectedTeam) {
+                document.getElementById('passwordSection').style.display = 'block';
+            } else {
+                document.getElementById('passwordSection').style.display = 'none';
+            }
+        });
+
+        document.getElementById('passwordSubmit').addEventListener('click', function () {
+            const passwordInput = document.getElementById('teamPassword').value;
+            if (passwordInput === teamPasswords[selectedTeam]) {
+                document.getElementById('checkInButton').style.display = 'block';
+                document.getElementById('message').textContent = `${selectedTeam} にログインしました。`;
+            } else {
+                document.getElementById('message').textContent = 'パスワードが間違っています。';
+            }
+        });
+
+        document.getElementById('checkInButton').addEventListener('click', function () {
+            if (new Date() > endTime) {
+                document.getElementById('message').textContent = '終了時間を過ぎています。';
+                return;
+            }
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+
+                    const distance = calculateDistance(currentLat, currentLng, checkinLocation.lat, checkinLocation.lng);
+                    if (distance <= checkinRadius) {
+                        sendCheckInData(selectedTeam);
+                    } else {
+                        document.getElementById('message').textContent = 'チェックイン可能エリア外です。';
+                    }
+                });
+            } else {
+                document.getElementById('message').textContent = '位置情報を取得できませんでした。';
+            }
+        });
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // metres
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            const d = R * c;
+            return d; // returns distance in meters
+        }
+
+        function sendCheckInData(team) {
+            const now = new Date();
+            const timeLeft = (endTime - now) / (1000 * 60 * 60); // 残り時間（時間単位）
+
+            if (timeLeft <= 1) {
+                document.getElementById('message').textContent = '終了1時間前ですので、得点表示はされません。';
+            }
+
+            fetch(GAS_WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    team: team,
+                    location: '高松駅',
+                    points: points
+                })
+            })
+            .then(() => {
+                document.getElementById('message').textContent = `${team} が高松駅にチェックインしました！${points}点を獲得！`;
+            })
+            .catch((error) => {
+                document.getElementById('message').textContent = 'チェックインに失敗しました。';
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
